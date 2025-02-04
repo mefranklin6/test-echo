@@ -89,7 +89,7 @@ func btnVisStateToggle(rx Rx) ([]byte, error) {
 	}
 
 	response := Response{
-		Type:     "button",
+		Type:     "Button",
 		Object:   rx.Name,
 		Function: "SetState",
 		Arg1:     state,
@@ -130,7 +130,7 @@ func replySliderHandler(w http.ResponseWriter, r *http.Request) {
 	value := rx.Value
 
 	response := Response{
-		Type:     "slider",
+		Type:     "Slider",
 		Object:   name,
 		Function: "SetFill",
 		Arg1:     value,
@@ -150,7 +150,7 @@ func replySliderHandler(w http.ResponseWriter, r *http.Request) {
 
 func sendTestSetLabel(conn net.Conn) {
 	response := Response{
-		Type:     "label",
+		Type:     "Label",
 		Object:   testLabel,
 		Function: "SetText",
 		Arg1:     time.Now().Format("15:04:05"),
