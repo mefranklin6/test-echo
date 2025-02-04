@@ -38,6 +38,7 @@ func main() {
 	// Handle unsolicited data from the processor
 	http.HandleFunc("/api/v1/button", replyButtonHandler)
 	http.HandleFunc("/api/v1/slider", replySliderHandler)
+	http.HandleFunc("/api/v1/test", replyTestHandler)
 
 	// Connect to the processor to send unsolicited commands
 	conn, err := net.Dial("tcp", ProcessorAddr)
@@ -76,6 +77,10 @@ type Rx struct {
 	Name   string `json:"name"`
 	Action string `json:"action"`
 	Value  string `json:"value,omitempty"`
+}
+
+func replyTestHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
 }
 
 func btnVisStateToggle(rx Rx) ([]byte, error) {
