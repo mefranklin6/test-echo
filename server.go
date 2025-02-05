@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 )
 
@@ -40,28 +41,36 @@ func main() {
 	http.HandleFunc("/api/v1/slider", replySliderHandler)
 	http.HandleFunc("/api/v1/test", replyTestHandler)
 
-	// Connect to the processor to send unsolicited commands
-	conn, err := net.Dial("tcp", ProcessorAddr)
-	if err != nil {
-		fmt.Println("Error connecting to client:", err)
-		return
-	}
-	defer conn.Close()
-
 	// Send a test label update once per second
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
 
-		for range ticker.C {
-			sendTestSetLabel(conn)
-		}
-	}()
+	go startTicker()
 
 	fmt.Println("Starting server at", ServerAddr)
 	if err := http.ListenAndServe(ServerAddr, nil); err != nil {
 		fmt.Println("Error starting server:", err)
 	}
+}
+
+var conn net.Conn
+var connErr error
+var connMu sync.Mutex
+
+// Getter function for the TCP connection
+func getConn() (net.Conn, error) {
+	connMu.Lock()
+	defer connMu.Unlock()
+
+	if conn == nil {
+		fmt.Println("No existing connection.  Attempting to establish.")
+		conn, connErr = net.Dial("tcp", ProcessorAddr)
+		if connErr != nil {
+			return nil, connErr
+		} else {
+			fmt.Println("Connected", conn.LocalAddr().String(), ">", conn.RemoteAddr().String())
+		}
+	}
+
+	return conn, nil
 }
 
 type Response struct {
@@ -77,6 +86,15 @@ type Rx struct {
 	Name   string `json:"name"`
 	Action string `json:"action"`
 	Value  string `json:"value,omitempty"`
+}
+
+func startTicker() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		sendTestSetLabel()
+	}
 }
 
 func replyTestHandler(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +171,7 @@ func replySliderHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(reply)
 }
 
-func sendTestSetLabel(conn net.Conn) {
+func sendTestSetLabel() {
 	response := Response{
 		Type:     "Label",
 		Object:   testLabel,
@@ -161,14 +179,24 @@ func sendTestSetLabel(conn net.Conn) {
 		Arg1:     time.Now().Format("15:04:05"),
 	}
 
-	reply, err := json.Marshal(response)
+	data_to_send, err := json.Marshal(response)
 	if err != nil {
 		fmt.Println("Error creating response:", err)
 		return
 	}
 
+	sendToProcessor(data_to_send)
+}
+
+func sendToProcessor(data_to_send []byte) {
+	conn, err := getConn()
+	if err != nil {
+		fmt.Println("Error connecting to client:", err)
+		return
+	}
+
 	// Create an HTTP request
-	req, err := http.NewRequest("POST", "/", bytes.NewBuffer(reply))
+	req, err := http.NewRequest("POST", "/", bytes.NewBuffer(data_to_send))
 	if err != nil {
 		fmt.Println("Error creating HTTP request:", err)
 		return
@@ -179,6 +207,16 @@ func sendTestSetLabel(conn net.Conn) {
 	err = req.Write(conn)
 	if err != nil {
 		fmt.Println("Error sending HTTP request:", err)
+		closeConn() // Close and set conn to nil
 		return
+	}
+}
+
+func closeConn() {
+	connMu.Lock()
+	defer connMu.Unlock()
+	if conn != nil {
+		conn.Close()
+		conn = nil
 	}
 }
