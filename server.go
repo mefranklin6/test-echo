@@ -41,7 +41,7 @@ func main() {
 	http.HandleFunc("/api/v1/slider", replySliderHandler)
 	http.HandleFunc("/api/v1/test", replyTestHandler)
 
-	// Send a test label update once per second
+	// Send a test label periodically
 
 	go startTicker()
 
@@ -89,7 +89,8 @@ type Rx struct {
 }
 
 func startTicker() {
-	ticker := time.NewTicker(1 * time.Second)
+	// Non xi processors start to bug out at 10ms or lower
+	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -176,7 +177,7 @@ func sendTestSetLabel() {
 		Type:     "Label",
 		Object:   testLabel,
 		Function: "SetText",
-		Arg1:     time.Now().Format("15:04:05"),
+		Arg1:     time.Now().Format("15:04:05.00"),
 	}
 
 	data_to_send, err := json.Marshal(response)
