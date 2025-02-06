@@ -1,7 +1,7 @@
 import urllib.error
 import urllib.request
 
-from extronlib.system import Ping, ProgramLog, SetAutomaticTime
+from extronlib.system import Ping, ProgramLog, SetAutomaticTime, Wait
 
 
 def set_ntp(ntp_primary, ntp_secondary=None):
